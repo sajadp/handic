@@ -1,176 +1,177 @@
-<!DOCTYPE html>
-<html lang="fa" dir="rtl">
+# ما یک فایل HTML کامل با JS و CSS یکجا تولید می‌کنیم و ذخیره می‌کنیم تا سجاد بتونه روی گیت‌هاب بذاره
+html_code = r"""<!DOCTYPE html>
+<html lang=\"fa\">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>نقاشی با حرکت دست - نسخه وب</title>
-  <style>
-    :root{
-      --bg:#0f172a;
-      --panel:#111827;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --danger:#ef4444;
-    }
-    html,body{height:100%;margin:0;background:linear-gradient(135deg,#0b1020,#1e293b);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; color:#e5e7eb}
-    .wrap{max-width:980px;margin:0 auto;padding:16px;}
-    header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;margin-bottom:12px}
-    h1{font-size:20px;margin:0;font-weight:700}
-    .panel{background:rgba(255,255,255,0.06);backdrop-filter: blur(6px); border:1px solid rgba(255,255,255,0.08); padding:12px;border-radius:16px;}
-    .controls{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;align-items:center}
-    .control{grid-column: span 12; display:flex; align-items:center; gap:10px;}
-    .control.compact{grid-column: span 6}
-    .control label{font-size:12px;color:var(--muted)}
-    input[type="color"]{appearance:none;border:none;width:40px;height:32px;border-radius:10px;background:transparent;overflow:hidden}
-    input[type="range"]{width:100%}
-    .btns{display:flex;gap:8px;flex-wrap:wrap}
-    button{appearance:none;border:none;padding:10px 14px;border-radius:12px;font-weight:600;cursor:pointer;background:#1f2937;color:#e5e7eb;border:1px solid rgba(255,255,255,0.08);}
-    button.primary{background:var(--accent);color:#052e12}
-    button.danger{background:#1f2937;color:#fecaca;border-color:rgba(239,68,68,0.35)}
-    .canvas-wrap{position:relative;aspect-ratio:3/4;background:#0b1220;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.08)}
-    #drawCanvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
-    #video{display:none}
-    .status{font-size:12px;color:var(--muted);display:flex;gap:10px;align-items:center;margin-top:8px}
-    .dot{width:8px;height:8px;border-radius:99px;background:#f59e0b}
-    .dot.on{background:#22c55e}
-    .hint{font-size:12px;color:#cbd5e1;opacity:.9}
-    .foot{display:flex;justify-content:space-between;align-items:center;gap:12px}
-    .switch{display:inline-flex;align-items:center;gap:8px}
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<meta charset=\"UTF-8\" />
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
+<title>نقاشی با حرکت دست</title>
+<style>
+  body {
+    background-color: #111;
+    color: white;
+    font-family: sans-serif;
+    text-align: center;
+    margin: 0;
+    overflow: hidden;
+  }
+  #controls {
+    padding: 10px;
+    background: #222;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  input[type=color], input[type=range], button {
+    padding: 5px;
+    border-radius: 5px;
+    border: none;
+    font-size: 16px;
+  }
+  canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+  video {
+    display: none;
+  }
+</style>
+<script src=\"https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js\"></script>
+<script src=\"https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js\"></script>
+<script src=\"https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js\"></script>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1>نقاشی با حرکت دست</h1>
-      <div class="hint">نوک انگشت شست و اشاره رو نزدیک کن (Pinch) تا رسم فعال شه</div>
-    </header>
+<div id=\"controls\">
+  رنگ قلم: <input type=\"color\" id=\"colorPicker\" value=\"#00ff00\" />
+  ضخامت قلم: <input type=\"range\" id=\"thickness\" min=\"1\" max=\"30\" value=\"8\" />
+  <button id=\"eraser\">پاک‌کن</button>
+  <button id=\"clear\">پاک کردن همه</button>
+  <button id=\"save\">ذخیره PNG</button>
+  <button id=\"switchCam\">تغییر دوربین</button>
+</div>
+<video id=\"video\" playsinline></video>
+<canvas id=\"drawCanvas\"></canvas>
+<script>
+let drawCanvas = document.getElementById('drawCanvas');
+let ctx = drawCanvas.getContext('2d');
+let videoElement = document.getElementById('video');
+let colorPicker = document.getElementById('colorPicker');
+let thickness = document.getElementById('thickness');
+let eraserBtn = document.getElementById('eraser');
+let clearBtn = document.getElementById('clear');
+let saveBtn = document.getElementById('save');
+let switchCamBtn = document.getElementById('switchCam');
 
-    <section class="panel">
-      <div class="controls">
-        <div class="control compact">
-          <label>رنگ قلم</label>
-          <input id="color" type="color" value="#22c55e" />
-        </div>
-        <div class="control compact">
-          <label>ضخامت قلم: <span id="thicknessLabel">8px</span></label>
-          <input id="thickness" type="range" min="1" max="40" step="1" value="8" />
-        </div>
-        <div class="control compact">
-          <label class="switch"><input id="eraser" type="checkbox" /> پاک‌کن</label>
-        </div>
-        <div class="control compact">
-          <label class="switch"><input id="manualToggle" type="checkbox" /> حالت دستی</label>
-        </div>
-        <div class="control" style="grid-column: span 12">
-          <div class="btns">
-            <button id="clear" class="danger">پاک کردن</button>
-            <button id="save" class="primary">ذخیره PNG</button>
-          </div>
-        </div>
-      </div>
-    </section>
+let drawing = false;
+let lastX, lastY;
+let penColor = colorPicker.value;
+let penSize = parseInt(thickness.value);
+let erasing = false;
+let facingMode = 'user'; // start with front camera
 
-    <section class="panel" style="margin-top:12px">
-      <div class="canvas-wrap">
-        <video id="video" playsinline autoplay muted></video>
-        <canvas id="drawCanvas"></canvas>
-      </div>
-      <div class="foot">
-        <div class="status"><span class="dot" id="camDot"></span> <span id="camStatus">در حال راه‌اندازی…</span></div>
-        <div class="status">حالت قلم: <span id="penStatus">بالا</span></div>
-      </div>
-    </section>
-  </div>
+function resizeCanvas() {
+  drawCanvas.width = window.innerWidth;
+  drawCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 
-  <script>
-    const video=document.getElementById('video');
-    const canvas=document.getElementById('drawCanvas');
-    const ctx=canvas.getContext('2d');
-    const colorEl=document.getElementById('color');
-    const thicknessEl=document.getElementById('thickness');
-    const thicknessLabel=document.getElementById('thicknessLabel');
-    const eraserEl=document.getElementById('eraser');
-    const manualToggleEl=document.getElementById('manualToggle');
-    const clearBtn=document.getElementById('clear');
-    const saveBtn=document.getElementById('save');
-    const camStatus=document.getElementById('camStatus');
-    const camDot=document.getElementById('camDot');
-    const penStatus=document.getElementById('penStatus');
+colorPicker.oninput = () => {
+  penColor = colorPicker.value;
+  erasing = false;
+};
+thickness.oninput = () => {
+  penSize = parseInt(thickness.value);
+};
+eraserBtn.onclick = () => {
+  erasing = !erasing;
+};
+clearBtn.onclick = () => {
+  ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+};
+saveBtn.onclick = () => {
+  let link = document.createElement('a');
+  link.download = 'drawing.png';
+  link.href = drawCanvas.toDataURL('image/png');
+  link.click();
+};
+switchCamBtn.onclick = () => {
+  facingMode = (facingMode === 'user') ? 'environment' : 'user';
+  startCamera();
+};
 
-    function fitCanvas(){
-      const rect=canvas.parentElement.getBoundingClientRect();
-      const dpr=Math.max(1,window.devicePixelRatio||1);
-      canvas.width=Math.floor(rect.width*dpr);
-      canvas.height=Math.floor(rect.height*dpr);
-      canvas.style.width=rect.width+'px';
-      canvas.style.height=rect.height+'px';
-      ctx.lineCap='round';
-      ctx.lineJoin='round';
-    }
-    window.addEventListener('resize',fitCanvas);
-    fitCanvas();
+function startCamera() {
+  if (window.camera) {
+    window.camera.stop();
+  }
+  const camera = new Camera(videoElement, {
+    onFrame: async () => {
+      await hands.send({ image: videoElement });
+    },
+    width: 640,
+    height: 480,
+    facingMode: facingMode
+  });
+  window.camera = camera;
+  camera.start().catch(err => {
+    alert('خطای دسترسی به دوربین: ' + err.message);
+  });
+}
 
-    let last=null;
-    let penDown=false;
+const hands = new Hands({ locateFile: (file) => {
+  return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+}});
+hands.setOptions({
+  maxNumHands: 1,
+  modelComplexity: 1,
+  minDetectionConfidence: 0.7,
+  minTrackingConfidence: 0.7
+});
 
-    function setPenDown(v){
-      if(penDown!==v){penDown=v;penStatus.textContent=penDown?'پایین':'بالا';}
-      if(!penDown)last=null;
-    }
-
-    thicknessEl.addEventListener('input',()=>{thicknessLabel.textContent=thicknessEl.value+'px'});
-    clearBtn.addEventListener('click',()=>{ctx.clearRect(0,0,canvas.width,canvas.height)});
-    saveBtn.addEventListener('click',()=>{const link=document.createElement('a');link.download='hand-draw.png';link.href=canvas.toDataURL('image/png');link.click()});
-
-    function lerp(a,b,t){return a+(b-a)*t}
-    function drawTo(x,y){
-      const thickness=parseFloat(thicknessEl.value);
-      ctx.globalCompositeOperation=eraserEl.checked?'destination-out':'source-over';
-      ctx.strokeStyle=eraserEl.checked?'rgba(0,0,0,1)':colorEl.value;
-      ctx.lineWidth=thickness*(window.devicePixelRatio||1);
-      if(!last){last={x,y};return;}
-      const sx=lerp(last.x,x,0.6);
-      const sy=lerp(last.y,y,0.6);
-      ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(sx,sy);ctx.stroke();
-      last={x:sx,y:sy};
-    }
-
-    function nrmToCanvas(nx,ny){return{x:nx*canvas.width,y:ny*canvas.height}}
-    function isPinched(landmarks){const a=landmarks[4],b=landmarks[8];if(!a||!b)return false;const dx=a.x-b.x,dy=a.y-b.y;return Math.hypot(dx,dy)<0.06}
-
-    const hands=new Hands({locateFile:file=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-    hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:0.6,minTrackingConfidence:0.5});
-    hands.onResults(onResults);
-
-    async function setupCamera(){
-      try{
-        const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
-        video.srcObject=stream;
-        await video.play();
-        camStatus.textContent='فعال';camDot.classList.add('on');
-        const cam=new Camera(video,{onFrame:async()=>{await hands.send({image:video})},width:video.videoWidth||640,height:video.videoHeight||480});
-        cam.start();
-      }catch(err){
-        camStatus.textContent='خطا در دسترسی';
-        console.error(err);
-        alert('برای استفاده باید اجازه دسترسی به دوربین داده شود و صفحه روی HTTPS باز شود.');
+hands.onResults(results => {
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const landmarks = results.multiHandLandmarks[0];
+    const x = landmarks[8].x * drawCanvas.width; // index fingertip
+    const y = landmarks[8].y * drawCanvas.height;
+    const thumbDist = Math.hypot(
+      (landmarks[4].x - landmarks[8].x) * drawCanvas.width,
+      (landmarks[4].y - landmarks[8].y) * drawCanvas.height
+    );
+    // pinch < 40px => drawing mode
+    if (thumbDist < 40) {
+      if (!drawing) {
+        drawing = true;
+        lastX = x;
+        lastY = y;
       }
-    }
+      ctx.strokeStyle = erasing ? 'rgba(0,0,0,0)' : penColor;
+      ctx.lineWidth = penSize;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.globalCompositeOperation = erasing ? 'destination-out' : 'source-over';
 
-    function onResults(results){
-      const hand=results.multiHandLandmarks&&results.multiHandLandmarks[0];
-      if(!hand){setPenDown(false);return;}
-      const drawMode=manualToggleEl.checked?true:isPinched(hand);
-      setPenDown(drawMode);
-      const p=hand[8];if(!p)return;
-      const {x,y}=nrmToCanvas(p.x,p.y);
-      if(penDown){drawTo(x,y)}else{last=null}
-    }
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
 
-    (async()=>{await setupCamera()})();
-  </script>
+      lastX = x;
+      lastY = y;
+    } else {
+      drawing = false;
+    }
+  } else {
+    drawing = false;
+  }
+});
+
+startCamera();
+</script>
 </body>
-</html>
+</html>"""
+
+with open("/mnt/data/index_fixed.html", "w", encoding="utf-8") as f:
+    f.write(html_code)
+
+"/mnt/data/index_fixed.html"

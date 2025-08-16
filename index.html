@@ -65,6 +65,9 @@
           <label class="switch"><input id="manualToggle" type="checkbox" /> حالت دستی</label>
         </div>
         <div class="control compact">
+          <label class="switch"><input id="dotMode" type="checkbox" /> حالت نقطه‌گذاری</label>
+        </div>
+        <div class="control compact">
           <label class="switch"><input id="showVideo" type="checkbox" checked/> نمایش تصویر من</label>
         </div>
         <div class="control" style="grid-column: span 12">
@@ -98,6 +101,7 @@
     const eraserEl=document.getElementById('eraser');
     const manualToggleEl=document.getElementById('manualToggle');
     const showVideoEl=document.getElementById('showVideo');
+    const dotModeEl=document.getElementById('dotMode');
     const clearBtn=document.getElementById('clear');
     const saveBtn=document.getElementById('save');
     const camStatus=document.getElementById('camStatus');
@@ -131,21 +135,23 @@
     showVideoEl.addEventListener('change',()=>{video.style.display=showVideoEl.checked?'block':'none'});
 
     function lerp(a,b,t){return a+(b-a)*t}
+
     function drawTo(x,y){
       const thickness=parseFloat(thicknessEl.value);
       ctx.globalCompositeOperation=eraserEl.checked?'destination-out':'source-over';
       ctx.strokeStyle=eraserEl.checked?'rgba(0,0,0,1)':colorEl.value;
       ctx.lineWidth=thickness*(window.devicePixelRatio||1);
+      if(dotModeEl.checked){
+        ctx.beginPath();ctx.arc(x,y,thickness/2,0,Math.PI*2);ctx.fillStyle=colorEl.value;ctx.fill();
+        last=null; return;
+      }
       if(!last){last={x,y};return;}
       const sx=lerp(last.x,x,0.6);
       const sy=lerp(last.y,y,0.6);
       ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(sx,sy);ctx.stroke();
       last={x:sx,y:sy};
       // draw pen tip marker
-      ctx.beginPath();
-      ctx.fillStyle=colorEl.value;
-      ctx.arc(sx,sy,thickness/2,0,Math.PI*2);
-      ctx.fill();
+      ctx.beginPath();ctx.fillStyle=colorEl.value;ctx.arc(sx,sy,thickness/2,0,Math.PI*2);ctx.fill();
     }
 
     function nrmToCanvas(nx,ny){

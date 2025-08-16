@@ -45,7 +45,7 @@
   <div class="wrap">
     <header>
       <h1>نقاشی با حرکت دست - نسخه پیشرفته</h1>
-      <div class="hint">حالت دستی روان و بدون لگ، با امکان خطوط پیوسته و غیرمستمر</div>
+      <div class="hint">حالت دستی: وقتی انگشت اشاره فاصله گرفت، نقاشی قطع می‌شود</div>
     </header>
 
     <section class="panel">
@@ -67,14 +67,10 @@
         <div class="control compact">
           <label class="switch"><input id="showVideo" type="checkbox" checked/> نمایش تصویر من</label>
         </div>
-        <div class="control compact">
-          <label class="switch"><input id="recordToggle" type="checkbox" /> ضبط 20 ثانیه‌ای</label>
-        </div>
         <div class="control" style="grid-column: span 12">
           <div class="btns">
             <button id="clear" class="danger">پاک کردن</button>
             <button id="save" class="primary">ذخیره PNG</button>
-            <button id="saveVideo" class="primary">ذخیره ویدیو</button>
           </div>
         </div>
       </div>
@@ -102,10 +98,8 @@
     const eraserEl=document.getElementById('eraser');
     const manualToggleEl=document.getElementById('manualToggle');
     const showVideoEl=document.getElementById('showVideo');
-    const recordToggleEl=document.getElementById('recordToggle');
     const clearBtn=document.getElementById('clear');
     const saveBtn=document.getElementById('save');
-    const saveVideoBtn=document.getElementById('saveVideo');
     const camStatus=document.getElementById('camStatus');
     const camDot=document.getElementById('camDot');
     const penStatus=document.getElementById('penStatus');
@@ -136,17 +130,6 @@
     saveBtn.addEventListener('click',()=>{const link=document.createElement('a');link.download='hand-draw.png';link.href=canvas.toDataURL('image/png');link.click()});
     showVideoEl.addEventListener('change',()=>{video.style.display=showVideoEl.checked?'block':'none'});
 
-    let mediaRecorder, recordedChunks=[];
-    saveVideoBtn.addEventListener('click',()=>{
-      if(recordedChunks.length){
-        const blob=new Blob(recordedChunks,{type:'video/webm'});
-        const url=URL.createObjectURL(blob);
-        const a=document.createElement('a');
-        a.href=url;a.download='hand-draw-video.webm';a.click();
-        recordedChunks=[];
-      }
-    });
-
     function lerp(a,b,t){return a+(b-a)*t}
 
     function drawTo(x,y){
@@ -155,8 +138,8 @@
       ctx.strokeStyle=eraserEl.checked?'rgba(0,0,0,1)':colorEl.value;
       ctx.lineWidth=thickness*(window.devicePixelRatio||1);
       if(!last){last={x,y};return;}
-      const sx=lerp(last.x,x,0.6);
-      const sy=lerp(last.y,y,0.6);
+      const sx=lerp(last.x,x,0.5);
+      const sy=lerp(last.y,y,0.5);
       ctx.beginPath();
       ctx.moveTo(last.x,last.y);
       ctx.lineTo(sx,sy);
@@ -166,6 +149,7 @@
     }
 
     function nrmToCanvas(nx,ny){return{x:(1-nx)*canvas.width,y:ny*canvas.height};}
+    function isPinched(landmarks){if(!landmarks[4]||!landmarks[8])return false;return Math.hypot(landmarks[4].x-landmarks[8].x,landmarks[4].y-landmarks[8].y)<0.08}
 
     const hands=new Hands({locateFile:file=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
     hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:0.6,minTrackingConfidence:0.5});
@@ -173,15 +157,17 @@
     hands.onResults(results=>{
       const hand=results.multiHandLandmarks&&results.multiHandLandmarks[0];
       if(!hand){setPenDown(false);return;}
-      const p=hand[8];if(!p)return;
+      const p=hand[8];if(!p){setPenDown(false);return;}
       const {x,y}=nrmToCanvas(p.x,p.y);
+
       if(manualToggleEl.checked){
-        const pinch=Math.hypot(hand[4].x-hand[8].x,hand[4].y-hand[8].y)<0.08;
+        const pinch=isPinched(hand);
         setPenDown(pinch);
       } else {
         setPenDown(true);
       }
-      if(penDown)drawTo(x,y);else last=null;
+
+      if(penDown)drawTo(x,y); else last=null;
     });
 
     async function setupCamera(){
@@ -190,12 +176,6 @@
         video.srcObject=stream;
         await video.play();
         camStatus.textContent='فعال';camDot.classList.add('on');
-        if(recordToggleEl.checked){
-          mediaRecorder=new MediaRecorder(stream);
-          mediaRecorder.ondataavailable=e=>{if(e.data.size>0)recordedChunks.push(e.data)};
-          mediaRecorder.start(1000);
-          setTimeout(()=>mediaRecorder.stop(),20000);
-        }
         const cam=new Camera(video,{onFrame:async()=>{await hands.send({image:video})}});
         cam.start();
       }catch(err){

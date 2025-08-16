@@ -28,8 +28,8 @@
     button.primary{background:var(--accent);color:#052e12}
     button.danger{background:#1f2937;color:#fecaca;border-color:rgba(239,68,68,0.35)}
     .canvas-wrap{position:relative;aspect-ratio:3/4;background:#0b1220;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.08)}
-    #drawCanvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
-    #video{display:none}
+    #drawCanvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;z-index:2}
+    #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:1}
     .status{font-size:12px;color:var(--muted);display:flex;gap:10px;align-items:center;margin-top:8px}
     .dot{width:8px;height:8px;border-radius:99px;background:#f59e0b}
     .dot.on{background:#22c55e}
@@ -64,6 +64,9 @@
         <div class="control compact">
           <label class="switch"><input id="manualToggle" type="checkbox" /> حالت دستی</label>
         </div>
+        <div class="control compact">
+          <label class="switch"><input id="showVideo" type="checkbox" checked/> نمایش تصویر من</label>
+        </div>
         <div class="control" style="grid-column: span 12">
           <div class="btns">
             <button id="clear" class="danger">پاک کردن</button>
@@ -94,6 +97,7 @@
     const thicknessLabel=document.getElementById('thicknessLabel');
     const eraserEl=document.getElementById('eraser');
     const manualToggleEl=document.getElementById('manualToggle');
+    const showVideoEl=document.getElementById('showVideo');
     const clearBtn=document.getElementById('clear');
     const saveBtn=document.getElementById('save');
     const camStatus=document.getElementById('camStatus');
@@ -124,6 +128,7 @@
     thicknessEl.addEventListener('input',()=>{thicknessLabel.textContent=thicknessEl.value+'px'});
     clearBtn.addEventListener('click',()=>{ctx.clearRect(0,0,canvas.width,canvas.height)});
     saveBtn.addEventListener('click',()=>{const link=document.createElement('a');link.download='hand-draw.png';link.href=canvas.toDataURL('image/png');link.click()});
+    showVideoEl.addEventListener('change',()=>{video.style.display=showVideoEl.checked?'block':'none'});
 
     function lerp(a,b,t){return a+(b-a)*t}
     function drawTo(x,y){
@@ -136,9 +141,16 @@
       const sy=lerp(last.y,y,0.6);
       ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(sx,sy);ctx.stroke();
       last={x:sx,y:sy};
+      // draw pen tip marker
+      ctx.beginPath();
+      ctx.fillStyle=colorEl.value;
+      ctx.arc(sx,sy,thickness/2,0,Math.PI*2);
+      ctx.fill();
     }
 
-    function nrmToCanvas(nx,ny){return{x:nx*canvas.width,y:ny*canvas.height}}
+    function nrmToCanvas(nx,ny){
+      return{x:(1-nx)*canvas.width,y:ny*canvas.height};
+    }
     function isPinched(landmarks){const a=landmarks[4],b=landmarks[8];if(!a||!b)return false;const dx=a.x-b.x,dy=a.y-b.y;return Math.hypot(dx,dy)<0.06}
 
     const hands=new Hands({locateFile:file=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});

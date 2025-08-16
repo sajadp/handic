@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>نقاشی با حرکت دست - نسخه وب</title>
+  <title>نقاشی با حرکت دست - نسخه پیشرفته</title>
   <style>
     :root{
       --bg:#0f172a;
@@ -12,19 +12,19 @@
       --accent:#22c55e;
       --danger:#ef4444;
     }
-    html,body{height:100%;margin:0;background:linear-gradient(135deg,#0b1020,#1e293b);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; color:#e5e7eb}
-    .wrap{max-width:980px;margin:0 auto;padding:16px;}
+    html,body{height:100%;margin:0;background:linear-gradient(135deg,#0b1020,#1e293b);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#e5e7eb}
+    .wrap{max-width:980px;margin:0 auto;padding:16px}
     header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;margin-bottom:12px}
     h1{font-size:20px;margin:0;font-weight:700}
-    .panel{background:rgba(255,255,255,0.06);backdrop-filter: blur(6px); border:1px solid rgba(255,255,255,0.08); padding:12px;border-radius:16px;}
+    .panel{background:rgba(255,255,255,0.06);backdrop-filter: blur(6px); border:1px solid rgba(255,255,255,0.08); padding:12px;border-radius:16px}
     .controls{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;align-items:center}
-    .control{grid-column: span 12; display:flex; align-items:center; gap:10px;}
+    .control{grid-column: span 12; display:flex; align-items:center; gap:10px}
     .control.compact{grid-column: span 6}
     .control label{font-size:12px;color:var(--muted)}
     input[type="color"]{appearance:none;border:none;width:40px;height:32px;border-radius:10px;background:transparent;overflow:hidden}
     input[type="range"]{width:100%}
     .btns{display:flex;gap:8px;flex-wrap:wrap}
-    button{appearance:none;border:none;padding:10px 14px;border-radius:12px;font-weight:600;cursor:pointer;background:#1f2937;color:#e5e7eb;border:1px solid rgba(255,255,255,0.08);}
+    button{appearance:none;border:none;padding:10px 14px;border-radius:12px;font-weight:600;cursor:pointer;background:#1f2937;color:#e5e7eb;border:1px solid rgba(255,255,255,0.08)}
     button.primary{background:var(--accent);color:#052e12}
     button.danger{background:#1f2937;color:#fecaca;border-color:rgba(239,68,68,0.35)}
     .canvas-wrap{position:relative;aspect-ratio:3/4;background:#0b1220;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.08)}
@@ -44,8 +44,8 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>نقاشی با حرکت دست</h1>
-      <div class="hint">نوک انگشت شست و اشاره رو نزدیک کن (Pinch) تا رسم فعال شه</div>
+      <h1>نقاشی با حرکت دست - نسخه پیشرفته</h1>
+      <div class="hint">حالت دستی روان و بدون لگ، با امکان خطوط پیوسته و غیرمستمر</div>
     </header>
 
     <section class="panel">
@@ -67,10 +67,14 @@
         <div class="control compact">
           <label class="switch"><input id="showVideo" type="checkbox" checked/> نمایش تصویر من</label>
         </div>
+        <div class="control compact">
+          <label class="switch"><input id="recordToggle" type="checkbox" /> ضبط 20 ثانیه‌ای</label>
+        </div>
         <div class="control" style="grid-column: span 12">
           <div class="btns">
             <button id="clear" class="danger">پاک کردن</button>
             <button id="save" class="primary">ذخیره PNG</button>
+            <button id="saveVideo" class="primary">ذخیره ویدیو</button>
           </div>
         </div>
       </div>
@@ -98,8 +102,10 @@
     const eraserEl=document.getElementById('eraser');
     const manualToggleEl=document.getElementById('manualToggle');
     const showVideoEl=document.getElementById('showVideo');
+    const recordToggleEl=document.getElementById('recordToggle');
     const clearBtn=document.getElementById('clear');
     const saveBtn=document.getElementById('save');
+    const saveVideoBtn=document.getElementById('saveVideo');
     const camStatus=document.getElementById('camStatus');
     const camDot=document.getElementById('camDot');
     const penStatus=document.getElementById('penStatus');
@@ -130,6 +136,17 @@
     saveBtn.addEventListener('click',()=>{const link=document.createElement('a');link.download='hand-draw.png';link.href=canvas.toDataURL('image/png');link.click()});
     showVideoEl.addEventListener('change',()=>{video.style.display=showVideoEl.checked?'block':'none'});
 
+    let mediaRecorder, recordedChunks=[];
+    saveVideoBtn.addEventListener('click',()=>{
+      if(recordedChunks.length){
+        const blob=new Blob(recordedChunks,{type:'video/webm'});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.href=url;a.download='hand-draw-video.webm';a.click();
+        recordedChunks=[];
+      }
+    });
+
     function lerp(a,b,t){return a+(b-a)*t}
 
     function drawTo(x,y){
@@ -145,50 +162,47 @@
       ctx.lineTo(sx,sy);
       ctx.stroke();
       last={x:sx,y:sy};
-      // draw pen tip marker
       ctx.beginPath();ctx.fillStyle=colorEl.value;ctx.arc(sx,sy,thickness/2,0,Math.PI*2);ctx.fill();
     }
 
     function nrmToCanvas(nx,ny){return{x:(1-nx)*canvas.width,y:ny*canvas.height};}
-    function isPinched(landmarks){const a=landmarks[4],b=landmarks[8];if(!a||!b)return false;const dx=a.x-b.x,dy=a.y-b.y;return Math.hypot(dx,dy)<0.06}
 
     const hands=new Hands({locateFile:file=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
     hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:0.6,minTrackingConfidence:0.5});
-    hands.onResults(onResults);
+
+    hands.onResults(results=>{
+      const hand=results.multiHandLandmarks&&results.multiHandLandmarks[0];
+      if(!hand){setPenDown(false);return;}
+      const p=hand[8];if(!p)return;
+      const {x,y}=nrmToCanvas(p.x,p.y);
+      if(manualToggleEl.checked){
+        const pinch=Math.hypot(hand[4].x-hand[8].x,hand[4].y-hand[8].y)<0.08;
+        setPenDown(pinch);
+      } else {
+        setPenDown(true);
+      }
+      if(penDown)drawTo(x,y);else last=null;
+    });
 
     async function setupCamera(){
       try{
-        const stream=await navigator.mediaDevices.getUserMedia({
-          video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},
-          audio:false
-        });
+        const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
         video.srcObject=stream;
         await video.play();
         camStatus.textContent='فعال';camDot.classList.add('on');
-        const cam=new Camera(video,{onFrame:async()=>{await hands.send({image:video})},width:640,height:480});
+        if(recordToggleEl.checked){
+          mediaRecorder=new MediaRecorder(stream);
+          mediaRecorder.ondataavailable=e=>{if(e.data.size>0)recordedChunks.push(e.data)};
+          mediaRecorder.start(1000);
+          setTimeout(()=>mediaRecorder.stop(),20000);
+        }
+        const cam=new Camera(video,{onFrame:async()=>{await hands.send({image:video})}});
         cam.start();
       }catch(err){
         camStatus.textContent='خطا در دسترسی';
         console.error(err);
-        alert('برای استفاده باید اجازه دسترسی به دوربین داده شود، و هیچ برنامه دیگری دوربین را استفاده نکند. همچنین صفحه روی HTTPS باز شود.');
+        alert('دسترسی به دوربین داده نشده یا برنامه دیگری از دوربین استفاده می‌کند. صفحه باید HTTPS باشد.');
       }
-    }
-
-    function onResults(results){
-      const hand=results.multiHandLandmarks&&results.multiHandLandmarks[0];
-      if(!hand){setPenDown(false);return;}
-      let drawMode;
-      if(manualToggleEl.checked){
-        // حالت دستی: فقط زمانی که انگشت رو پایین نگه میداریم رسم میشه، قلم بالا و پایین قابل کنترل با فاصله انگشت شست و اشاره
-        drawMode=isPinched(hand)?true:false;
-      }else{
-        // حالت اتومات: تشخیص Pinch
-        drawMode=isPinched(hand);
-      }
-      setPenDown(drawMode);
-      const p=hand[8];if(!p)return;
-      const {x,y}=nrmToCanvas(p.x,p.y);
-      if(penDown){drawTo(x,y)}else{last=null}
     }
 
     (async()=>{await setupCamera()})();

@@ -45,7 +45,7 @@
   <div class="wrap">
     <header>
       <h1>نقاشی با حرکت دست - نسخه پیشرفته</h1>
-      <div class="hint">حالت دستی: وقتی انگشت اشاره فاصله گرفت، نقاشی قطع می‌شود</div>
+      <div class="hint">حالت دستی: وقتی انگشت اشاره و شست نزدیک بشن، نقاشی شروع میشه</div>
     </header>
 
     <section class="panel">
@@ -155,16 +155,19 @@
     hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:0.6,minTrackingConfidence:0.5});
 
     hands.onResults(results=>{
-      const hand=results.multiHandLandmarks&&results.multiHandLandmarks[0];
+      const hand=results.multiHandLandmarks && results.multiHandLandmarks[0];
       if(!hand){setPenDown(false);return;}
       const p=hand[8];if(!p){setPenDown(false);return;}
       const {x,y}=nrmToCanvas(p.x,p.y);
 
       if(manualToggleEl.checked){
-        const pinch=isPinched(hand);
-        setPenDown(pinch);
+        // حالت دستی: فقط وقتی pinch شد نقاشی کنه
+        setPenDown(isPinched(hand));
       } else {
-        setPenDown(true);
+        // حالت خودکار: فاصله انگشت اشاره از کف دست
+        const palm=hand[0];
+        const dist=Math.hypot(p.x-palm.x, p.y-palm.y);
+        setPenDown(dist>0.15);
       }
 
       if(penDown)drawTo(x,y); else last=null;
